@@ -113,32 +113,25 @@ order by year(si.InvoiceDate), month(si.InvoiceDate)
 Написать запросы 2-3 так, чтобы если в каком-то месяце не было продаж,
 то этот месяц также отображался бы в результатах, но там были нули.
 */
-/*
+
 select
+MONTHs.months,
 year(si.InvoiceDate) year,
-month(si.invoiceDate) month,
+month(si.InvoiceDate) month,
 ws.StockItemName,
-sil.ExtendedPrice,
-si.InvoiceDate,
-sil.Quantity,
-1
+sum(sil.ExtendedPrice) totalPrice,
+min(si.InvoiceDate) firstSale,
+sum(sil.Quantity) TotalQuantity
 from
-Sales.Invoices si 
+(values(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12)) as months (months)
+left join 	Sales.Invoices si
+			on months.months = month(si.InvoiceDate) 
 join sales.InvoiceLines sil
 			on si.InvoiceID = sil.InvoiceID
-join Warehouse.StockItems ws
+right join Warehouse.StockItems ws
 			on sil.StockItemID = ws.StockItemID
+group by year(si.InvoiceDate), months.months, month(si.InvoiceDate), ws.StockItemName
+having sum(sil.Quantity) < 50
+order by year(si.InvoiceDate), month(si.InvoiceDate)
 
-union
-
-select distinct
-null,
-null,
-null,
-null,
-null,
-null,
-month(si.invoiceDate)
-from sales.Invoices si
-*/
 

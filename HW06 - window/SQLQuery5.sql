@@ -38,30 +38,30 @@ USE WideWorldImporters
 Ќарастающий итог должен быть без оконной функции.
 */
 
-select * from Sales.InvoiceLines
+set statistics time, io on
 
 select
 si.InvoiceID,
 sc.CustomerName,
 si.InvoiceDate,
 sum(sil.TaxAmount) monthSum,
-(select 
+(select
 sum(silSub.TaxAmount)
 from Sales.Invoices siSub 
 left join Sales.InvoiceLines silSub
 				on siSub.InvoiceID = silSub.InvoiceID
 where
-siSub.InvoiceDate between cast('01-01-2015' as date) and si.InvoiceDate
-) as check1
+convert(varchar(7), siSub.InvoiceDate, 126) between '2015-01' and convert(varchar(7), si.InvoiceDate, 126)
+) as Totals
 from
 sales.Invoices si
 left join Sales.InvoiceLines sil
 				on si.InvoiceID = sil.InvoiceID
 left join Sales.Customers sc
 				on si.CustomerID = sc.CustomerID
-where year(si.InvoiceDate) >= 2015 
+where convert(varchar(7), si.InvoiceDate, 126) >= '2015-01'
 group by si.InvoiceID,sc.CustomerName,si.InvoiceDate
-order by si.InvoiceDate
+order by si.InvoiceDate;
 
 
 
@@ -70,14 +70,70 @@ order by si.InvoiceDate
    —равните производительность запросов 1 и 2 с помощью set statistics time, io on
 */
 
-напишите здесь свое решение
+select
+si.InvoiceID,
+sc.CustomerName,
+si.InvoiceDate,
+sil.TaxAmount,
+sum(sil.TaxAmount) over (order by convert(varchar(7), si.invoicedate, 126))
+from
+sales.Invoices si
+left join Sales.InvoiceLines sil
+				on si.InvoiceID = sil.InvoiceID
+left join Sales.Customers sc
+				on si.CustomerID = sc.CustomerID
+where 
+convert(varchar(7), si.invoicedate, 126) >= '2015-01'
+order by convert(varchar(7), si.invoicedate, 126);
 
 /*
 3. ¬ывести список 2х самых попул€рных продуктов (по количеству проданных) 
 в каждом мес€це за 2016 год (по 2 самых попул€рных продукта в каждом мес€це).
 */
 
-напишите здесь свое решение
+with test
+as
+(
+select * from
+(
+select
+convert(varchar(7),si.InvoiceDate,126) myDate,
+sil.StockItemID,
+ROW_NUMBER() over (partition by convert(varchar(7),si.InvoiceDate,126), sil.StockItemID order by si.InvoiceDate) rn,
+sum(sil.Quantity) over (partition by convert(varchar(7),si.InvoiceDate,126),sil.stockitemid) sumQ
+from
+Sales.Invoices si
+left join Sales.InvoiceLines sil
+			on si.InvoiceID = sil.InvoiceID
+) x
+where
+(x.rn = 1 or x.rn = 2)
+and myDate like '2016%'
+group by myDate, StockItemID, rn, sumQ
+order by StockItemID
+)
+
+
+
+select myDate, max(sumQ) from
+(
+select distinct
+convert(varchar(7),si.InvoiceDate,126) myDate,
+sil.StockItemID,
+ROW_NUMBER() over (partition by convert(varchar(7),si.InvoiceDate,126), sil.StockItemID order by si.InvoiceDate) rn,
+sum(sil.Quantity) over (partition by convert(varchar(7),si.InvoiceDate,126),sil.stockitemid) sumQ
+from
+Sales.Invoices si
+left join Sales.InvoiceLines sil
+			on si.InvoiceID = sil.InvoiceID
+			where
+			convert(varchar(7),si.InvoiceDate,126) like '2016%'
+			order by convert(varchar(7),si.InvoiceDate,126), StockItemID, rn
+) x
+where
+myDate like '2016%'
+group by myDate
+order by myDate
 
 /*
 4. ‘ункции одним запросом

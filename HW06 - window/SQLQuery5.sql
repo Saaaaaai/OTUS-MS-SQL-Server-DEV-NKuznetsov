@@ -91,49 +91,81 @@ order by convert(varchar(7), si.invoicedate, 126);
 в каждом месяце за 2016 год (по 2 самых популярных продукта в каждом месяце).
 */
 
-with test
+with monthTotalsCTE
+AS
+(
+	select
+	ws.StockItemName,
+	MONTH(si.InvoiceDate) month,
+	sum(sil.Quantity) totals
+	from sales.Invoices si
+	left join sales.InvoiceLines sil
+					on si.InvoiceID = sil.InvoiceID
+	left join Warehouse.StockItems ws
+					on sil.StockItemID = ws.StockItemID
+	where year(si.InvoiceDate) = 2016
+	group by ws.StockItemName, MONTH(si.InvoiceDate)
+
+),
+numeredTotalsCTE
 as
 (
-select * from
-(
-select
-convert(varchar(7),si.InvoiceDate,126) myDate,
-sil.StockItemID,
-ROW_NUMBER() over (partition by convert(varchar(7),si.InvoiceDate,126), sil.StockItemID order by si.InvoiceDate) rn,
-sum(sil.Quantity) over (partition by convert(varchar(7),si.InvoiceDate,126),sil.stockitemid) sumQ
-from
-Sales.Invoices si
-left join Sales.InvoiceLines sil
-			on si.InvoiceID = sil.InvoiceID
-) x
-where
-(x.rn = 1 or x.rn = 2)
-and myDate like '2016%'
-group by myDate, StockItemID, rn, sumQ
-order by StockItemID
+	select
+	StockItemName,
+	month,
+	totals,
+	ROW_NUMBER() over (partition by month order by month, totals desc) numeredTotals
+	from monthTotalsCTE
 )
+select *
+from numeredTotalsCTE
+where numeredTotals <= 2
+order by month
+
+
+--with test
+--as
+--(
+--select * from
+--(
+--select
+--convert(varchar(7),si.InvoiceDate,126) myDate,
+--sil.StockItemID,
+--ROW_NUMBER() over (partition by convert(varchar(7),si.InvoiceDate,126), sil.StockItemID order by si.InvoiceDate) rn,
+--sum(sil.Quantity) over (partition by convert(varchar(7),si.InvoiceDate,126),sil.stockitemid) sumQ
+--from
+--Sales.Invoices si
+--left join Sales.InvoiceLines sil
+--			on si.InvoiceID = sil.InvoiceID
+--) x
+--where
+--(x.rn = 1 or x.rn = 2)
+--and myDate like '2016%'
+--group by myDate, StockItemID, rn, sumQ
+--order by StockItemID
+--)
 
 
 
-select myDate, max(sumQ) from
-(
-select distinct
-convert(varchar(7),si.InvoiceDate,126) myDate,
-sil.StockItemID,
-ROW_NUMBER() over (partition by convert(varchar(7),si.InvoiceDate,126), sil.StockItemID order by si.InvoiceDate) rn,
-sum(sil.Quantity) over (partition by convert(varchar(7),si.InvoiceDate,126),sil.stockitemid) sumQ
-from
-Sales.Invoices si
-left join Sales.InvoiceLines sil
-			on si.InvoiceID = sil.InvoiceID
-			where
-			convert(varchar(7),si.InvoiceDate,126) like '2016%'
-			order by convert(varchar(7),si.InvoiceDate,126), StockItemID, rn
-) x
-where
-myDate like '2016%'
-group by myDate
-order by myDate
+--select myDate, max(sumQ) from
+--(
+--select distinct
+--convert(varchar(7),si.InvoiceDate,126) myDate,
+--sil.StockItemID,
+--ROW_NUMBER() over (partition by convert(varchar(7),si.InvoiceDate,126), sil.StockItemID order by si.InvoiceDate) rn,
+--sum(sil.Quantity) over (partition by convert(varchar(7),si.InvoiceDate,126),sil.stockitemid) sumQ
+--from
+--Sales.Invoices si
+--left join Sales.InvoiceLines sil
+--			on si.InvoiceID = sil.InvoiceID
+--			where
+--			convert(varchar(7),si.InvoiceDate,126) like '2016%'
+--			order by convert(varchar(7),si.InvoiceDate,126), StockItemID, rn
+--) x
+--where
+--myDate like '2016%'
+--group by myDate
+--order by myDate
 
 /*
 4. Функции одним запросом
@@ -149,20 +181,90 @@ order by myDate
 Для этой задачи НЕ нужно писать аналог без аналитических функций.
 */
 
-напишите здесь свое решение
+select
+ws.StockItemID,
+ws.StockItemName,
+ws.Brand,
+ws.UnitPrice,
+row_number() over (partition by substring(ws.stockitemname,1,1) order by ws.stockitemname),
+count(1) over (),
+count(substring(ws.stockitemname,1,1)) over (partition by substring(ws.stockitemname,1,1)),
+lead(ws.StockItemID) over (order by ws.stockItemName),
+lag(ws.StockItemID) over (order by ws.stockItemName),
+coalesce(lag(ws.stockItemName,2) over (order by ws.stockItemName),'No items'),
+ntile(30) over (order by ws.TypicalWeightPerUnit)
+from Warehouse.StockItems ws;
+--group by ws.StockItemID, ws.StockItemName, ws.Brand, ws.UnitPrice
 
 /*
 5. По каждому сотруднику выведите последнего клиента, которому сотрудник что-то продал.
    В результатах должны быть ид и фамилия сотрудника, ид и название клиента, дата продажи, сумму сделки.
 */
 
-напишите здесь свое решение
+with personsSales
+as
+(
+	select
+	si.SalespersonPersonID,
+	ap.FullName,
+	sc.CustomerID,
+	sc.CustomerName,
+	si.InvoiceDate,
+	sum(sil.TaxAmount) saleSum
+	from sales.Invoices si
+	left join Application.People ap
+				on si.SalespersonPersonID = ap.PersonID
+	left join sales.Customers sc
+				on si.CustomerID = sc.CustomerID
+	left join sales.InvoiceLines sil
+				on si.InvoiceID = sil.InvoiceID
+	group by si.InvoiceDate, si.SalespersonPersonID, ap.FullName, sc.CustomerID, sc.CustomerName
+),
+lastPresonsSales
+as
+(
+	select
+	*,
+	ROW_NUMBER() over (partition by SalespersonPersonID order by invoiceDate desc) rn
+	from personsSales
+)
+select *
+from lastPresonsSales
+where rn = 1
+
+
 
 /*
 6. Выберите по каждому клиенту два самых дорогих товара, которые он покупал.
 В результатах должно быть ид клиета, его название, ид товара, цена, дата покупки.
 */
 
-напишите здесь свое решение
+with buyedItems
+as
+(
+	select
+	si.CustomerID,
+	sc.CustomerName,
+	sil.StockItemID,
+	max(sil.UnitPrice) maxPrice,
+	si.InvoiceDate
+	from Sales.Invoices si
+	left join sales.InvoiceLines sil
+					on si.InvoiceID = sil.InvoiceID
+	left join sales.Customers sc
+					on si.CustomerID = sc.CustomerID
+	group by si.CustomerID, sc.CustomerName, sil.StockItemID, si.InvoiceDate
+),
+last2MaxBuyedItems
+as
+(
+	select
+	*,
+	ROW_NUMBER() over (partition by customerid order by maxPrice desc) rn
+	from buyedItems
+)
+select *
+from last2MaxBuyedItems
+where rn <= 2
 
 Опционально можете для каждого запроса без оконных функций сделать вариант запросов с оконными функциями и сравнить их производительность. 

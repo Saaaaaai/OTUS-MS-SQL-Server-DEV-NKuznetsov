@@ -55,8 +55,6 @@ count(invoiceID)
 for [subName]  in ("(Sylvanite, MT)","(Peeples Valley, AZ)", "(Medicine Lodge, KS)", "(Gasport, NY)", "(Jessie, ND)")
 ) as pvt;
 
-select * from sales.Customers
-
 
 /*
 2. Для всех клиентов с именем, в котором есть "Tailspin Toys"
@@ -73,7 +71,44 @@ Tailspin Toys (Head Office) | Ribeiroville
 ----------------------------+--------------------
 */
 
-напишите здесь свое решение
+select 
+sc.CustomerName,
+sc.DeliveryAddressLine1
+from
+Sales.Customers sc
+where
+substring(sc.customerName,1,14) = 'Tailspin Toys'
+
+union 
+
+select 
+sc.CustomerName,
+sc.DeliveryAddressLine2
+from
+Sales.Customers sc
+where
+substring(sc.customerName,1,14) = 'Tailspin Toys'
+
+union
+
+select 
+sc.CustomerName,
+sc.PostalAddressLine1
+from
+Sales.Customers sc
+where
+substring(sc.customerName,1,14) = 'Tailspin Toys'
+
+union
+
+select 
+sc.CustomerName,
+sc.PostalAddressLine2
+from
+Sales.Customers sc
+where
+substring(sc.customerName,1,14) = 'Tailspin Toys'
+
 
 /*
 3. В таблице стран (Application.Countries) есть поля с цифровым кодом страны и с буквенным.
@@ -91,11 +126,54 @@ CountryId | CountryName | Code
 ----------+-------------+-------
 */
 
-напишите здесь свое решение
+select * from Application.Countries
+
+select
+ac.CountryName,
+caac.*
+from
+Application.Countries ac
+cross apply (
+select
+acAPLY.IsoAlpha3Code
+from Application.Countries acAPLY
+where
+ac.CountryID = acAPLY.CountryID
+
+union
+
+select
+cast(acAPLY.IsoNumericCode as varchar)
+from Application.Countries acAPLY
+where
+ac.CountryID = acAPLY.CountryID
+) caac
+
+
+
+
 
 /*
 4. Выберите по каждому клиенту два самых дорогих товара, которые он покупал.
 В результатах должно быть ид клиета, его название, ид товара, цена, дата покупки.
 */
 
-напишите здесь свое решение
+select 
+sc.CustomerID,
+sc.CustomerName,
+aply.StockItemID,
+aply.UnitPrice,
+aply.InvoiceDate
+from Sales.Customers sc
+cross apply
+(
+select top 2
+si.InvoiceDate,
+sil.*
+from Sales.Invoices si
+left join Sales.InvoiceLines sil
+				on si.InvoiceID = sil.InvoiceID
+where 
+sc.CustomerID = si.CustomerID
+order by sil.UnitPrice desc
+) aply

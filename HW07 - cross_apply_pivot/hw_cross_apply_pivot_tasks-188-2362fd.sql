@@ -71,43 +71,27 @@ Tailspin Toys (Head Office) | Ribeiroville
 ----------------------------+--------------------
 */
 
+select CustomerName,
+adr
+ from
+(
 select 
 sc.CustomerName,
-sc.DeliveryAddressLine1
-from
-Sales.Customers sc
-where
-substring(sc.customerName,1,14) = 'Tailspin Toys'
-
-union 
-
-select 
-sc.CustomerName,
-sc.DeliveryAddressLine2
-from
-Sales.Customers sc
-where
-substring(sc.customerName,1,14) = 'Tailspin Toys'
-
-union
-
-select 
-sc.CustomerName,
-sc.PostalAddressLine1
-from
-Sales.Customers sc
-where
-substring(sc.customerName,1,14) = 'Tailspin Toys'
-
-union
-
-select 
-sc.CustomerName,
+sc.DeliveryAddressLine1,
+sc.DeliveryAddressLine2,
+sc.PostalAddressLine1,
 sc.PostalAddressLine2
 from
 Sales.Customers sc
 where
 substring(sc.customerName,1,14) = 'Tailspin Toys'
+) as CustomersAdr
+unpivot
+(adr for CustomersAddress in (DeliveryAddressLine1,
+DeliveryAddressLine2,
+PostalAddressLine1,
+PostalAddressLine2)) as unpivotAdr
+
 
 
 /*
@@ -126,28 +110,22 @@ CountryId | CountryName | Code
 ----------+-------------+-------
 */
 
-select * from Application.Countries
 
 select
-ac.CountryName,
-caac.*
+CountryName,
+code
 from
-Application.Countries ac
-cross apply (
-select
-acAPLY.IsoAlpha3Code
-from Application.Countries acAPLY
-where
-ac.CountryID = acAPLY.CountryID
-
-union
-
-select
-cast(acAPLY.IsoNumericCode as varchar)
-from Application.Countries acAPLY
-where
-ac.CountryID = acAPLY.CountryID
-) caac
+(
+	select
+	ac.CountryName,
+	cast(ac.IsoAlpha3Code as varchar(50)) IsoAlpha3Code,
+	cast(ac.IsoNumericCode as varchar(50)) IsoNumericCode
+	from
+	Application.Countries ac
+) as CountryCode
+unpivot (
+code for CountryCodeInLine in (IsoAlpha3Code,IsoNumericCode)
+) as upvtCode
 
 
 
@@ -161,9 +139,9 @@ ac.CountryID = acAPLY.CountryID
 select 
 sc.CustomerID,
 sc.CustomerName,
-aply.StockItemID,
-aply.UnitPrice,
-aply.InvoiceDate
+CustomersPurchases.StockItemID,
+CustomersPurchases.UnitPrice,
+CustomersPurchases.InvoiceDate
 from Sales.Customers sc
 cross apply
 (
@@ -176,4 +154,4 @@ left join Sales.InvoiceLines sil
 where 
 sc.CustomerID = si.CustomerID
 order by sil.UnitPrice desc
-) aply
+) CustomersPurchases

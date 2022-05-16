@@ -177,7 +177,14 @@ for xml path ('Item'), TYPE, ROOT ('StockItems');
 - FirstTag (из поля CustomFields, первое значение из массива Tags)
 */
 
-напишите здесь свое решение
+
+SELECT 
+StockItemID,
+StockItemName,
+JSON_VALUE(CustomFields, '$.CountryOfManufacture') CountryOfManufacture,
+JSON_VALUE(CustomFields, '$.Tags[0]') FirstTag
+FROM Warehouse.StockItems
+
 
 /*
 4. Найти в StockItems строки, где есть тэг "Vintage".
@@ -198,5 +205,14 @@ for xml path ('Item'), TYPE, ROOT ('StockItems');
 ... where ... CustomFields like '%Vintage%' 
 */
 
-
-напишите здесь свое решение
+SELECT
+StockItemID,
+StockItemName,
+CustomFields,
+(select STRING_AGG(JSON_VALUE(CustomFields, '$.Tags[0]'),',')
+FROM Warehouse.StockItems
+)
+FROM Warehouse.StockItems
+WHERE
+JSON_VALUE(CustomFields, '$.Tags[0]') = 'Vintage'
+group by StockItemID, StockItemName, CustomFields

@@ -205,14 +205,16 @@ FROM Warehouse.StockItems
 ... where ... CustomFields like '%Vintage%' 
 */
 
+select customfields
+from Warehouse.StockItems
+
 SELECT
-StockItemID,
-StockItemName,
-CustomFields,
-(select STRING_AGG(JSON_VALUE(CustomFields, '$.Tags[0]'),',')
-FROM Warehouse.StockItems
-)
-FROM Warehouse.StockItems
+ws.StockItemID,
+ws.StockItemName,
+STRING_AGG(TagForRow.Value, ',') Tags 
+FROM Warehouse.StockItems ws
+CROSS APPLY OPENJSON(ws.CustomFields, '$.Tags') TagForSearch
+CROSS APPLY OPENJSON(ws.CustomFields, '$.Tags') TagForRow
 WHERE
-JSON_VALUE(CustomFields, '$.Tags[0]') = 'Vintage'
-group by StockItemID, StockItemName, CustomFields
+TagForSearch.value = 'Vintage'
+group by StockItemID, StockItemName, CustomFields, TagForSearch.value
